@@ -54,6 +54,6 @@ ggplot(data = squirrel_subset) +
 ## - If so, how much does it change the plot?
 ggplot(data = squirrel_subset) +
   aes(x = lat, y = long, color = primary_fur_color) +
-  geom_point() +
   # coord_quickmap()
-  coord_map()
+  coord_map() +
+  geom_point()
