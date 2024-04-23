@@ -1,0 +1,88 @@
+---
+title: "Limits and Coord_Cartesian"
+output: html_document
+date: "2024-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Initializing the Data
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+
+ss <- read.csv('./r_bridge/code/squirrels_subset.csv')
+```
+
+## Setting Limits in R Using Coord_Carteian()
+
+coord_cartesian() keeps all relevant data and depicts a snapshot of the data requested.
+
+```{r ss, echo=FALSE}
+# using coord_cartesian() to make a selective view/window of the plot
+squirrel_subset <- ss %>%
+  mutate(date_f = as.Date.character(date, format = '%m%d%Y'))
+
+ss_cart <- squirrel_subset %>%
+  group_by(date_f, primary_fur_color) %>%
+  summarise(count_of_colors = n()) %>% 
+  ggplot() + 
+  aes(x = date_f, y = count_of_colors, color = primary_fur_color) + 
+  stat_smooth(se = FALSE, span = 0.8) +
+  labs(
+    title = 'Decreasing Count of Squirrels Through Time',
+    subtitle = 'Moving Average Smoother Estimate',
+    x = 'Date of Observation',
+    y = 'Count of Squirrels',
+    color = 'Primary Fur Color'    # change the 'color' in aes
+  ) +
+  coord_cartesian(
+    # match limits to the format of the 'date_f' variable
+    xlim = c(as.Date.character('2018-10-08'),
+             as.Date.character('2018-10-15')),
+    # ylim = c(-25,100)   # limiting the y-values
+  )
+
+ss_cart
+```
+
+## Using lims() to Enforce Data Limitations
+
+```{r ss, echo=FALSE}
+# using lims() to make a selective view/window of the plot
+# this drops data that isn't in the window depicted by lims()
+squirrel_subset <- ss %>%
+  mutate(date_f = as.Date.character(date, format = '%m%d%Y'))
+
+ss_lims <- squirrel_subset %>%
+  group_by(date_f, primary_fur_color) %>%
+  summarise(count_of_colors = n()) %>% 
+  ggplot() + 
+  aes(x = date_f, y = count_of_colors, color = primary_fur_color) + 
+  stat_smooth(se = FALSE, span = 0.8) +
+  labs(
+    title = 'Decreasing Count of Squirrels Through Time',
+    subtitle = 'Moving Average Smoother Estimate',
+    x = 'Date of Observation',
+    y = 'Count of Squirrels',
+    color = 'Primary Fur Color'    # change the 'color' in aes
+  ) +
+  lims(
+    # match limits to the format of the 'date_f' variable
+    x = c(as.Date.character('2018-10-08'),
+             as.Date.character('2018-10-15')),
+  )
+ss_lims
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Comparing the two methods
+
+```{r}
+ss_cart / ss_lims
+```
