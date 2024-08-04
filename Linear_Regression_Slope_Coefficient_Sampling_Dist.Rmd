@@ -1,5 +1,5 @@
 ---
-title: "Unit 9 Applied HW"
+title: "Analysis of Slope Coefficients in Linear Regressions"
 author: "Jasmol Dhesi"
 date: "`r Sys.Date()`"
 output: html_document

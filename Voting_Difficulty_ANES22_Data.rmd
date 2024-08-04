@@ -1,0 +1,126 @@
+---
+title: 'Analyzing Voting Difficulty'
+author: "Jasmol Dhesi"
+output:
+  pdf_document:
+    toc: false
+    number_sections: true
+urlcolor: blue
+---
+
+# Introduction
+
+Historically, the United States has grappled with issues of voting accessibility and equality. From the enactment of the Voting Rights Act of 1965, which aimed to eliminate racial discrimination in voting, to recent debates over voter ID laws and mail-in voting, the landscape of voter rights has been constantly evolving. Ensuring that all citizens have equal access to voting remains a fundamental aspect of a functioning democracy.
+
+Understanding voter behavior and barriers to voting is crucial for fostering higher voter turnout and ensuring equal voting opportunities. As a first step, this analysis aims to address the following question:
+
+$\quad \textit{Do Democratic voters or Republican voters experience more difficulty voting?}$
+
+The American National Election Studies (ANES) conducts comprehensive surveys of voters in the United States, with their flagship survey occurring immediately before and after each presidential election. This research leverages ANES data to investigate whether disproportionate voting difficulties are experienced by voters affiliated with the Democratic and Republican parties. Focusing on voter difficulty by party is a topic of interest because political affiliations often align with specific demographic, socioeconomic, and geographic characteristics that may influence voting accessibility.
+
+To assess these potential disparities, we will employ a Wilcoxon rank-sum test. Identifying these differences can highlight systemic issues and guide targeted efforts to promote fairer voting processes. This study aims to contribute to the broader discussion on voting equality and inform policymakers, researchers, and the public about the challenges faced by voters from different political affiliations.
+
+# Data
+
+For our analysis, we utilized voting data sourced and collected by the American National Election Studies (ANES) **2022 Pilot Study**. This data was collected online through the YouGov platform and comprises responses from 1,585 survey participants. It is important to note that these respondents are not representative of the entire United States population, as participation was limited to individuals who completed quick surveys in exchange for points toward earning gift cards. However, weights are provided with the dataset to adjust for discrepancies between the sample and the population. Although we did not apply these weights in our study, it is a notable consideration.
+
+To address the specific factors pertinent to our research, we focused on two key variables: "pid_x," which measures party identification on a 7-point Likert scale ranging from "Strong Democrat" to "Strong Republican," and "votehard," which assesses the difficulty of voting on a 5-point Likert scale from "Not difficult at all" to "Extremely difficult."
+
+Our objective was to analyze the distribution of "votehard" for Democrats and Republicans separately. We began by excluding "independents" and respondents with missing data for "pid_x", specifically the 273 respondents who responded "Independent" to the "pid_x" survey question, and the 2 with missing responses, leaving us with 1,310 respondents. From this subset, we further excluded those who skipped the "votehard" question or for whom the question was not applicable, resulting in a final sample size of 1,047 respondents.
+
+Next, we categorized "pid_x" into two groups: "Democrat" and "Republican", based on the respondents' political leanings. To indicate this categorization, the "party_affiliation" column was added. This allowed us to create an initial two-contingency table to examine the distribution of respondents' voting difficulty across party affiliations.
+
+```{r setup_libraries, echo=FALSE, message=FALSE, warning=FALSE}
+library(wooldridge)
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(knitr)
+```
+
+```{r load_data, echo=FALSE}
+anes_data22 <- read.csv("anes_pilot_2022_csv_20221214.csv")
+
+# Add numerical index to data
+anes_data22 <- anes_data22 %>% 
+  mutate(index = row_number())
+```
+
+```{r analyze_political_leanings, echo=FALSE, warning=FALSE}
+# Make binary columns with 1 or o depending if democrat or republican 
+
+anes_data22 <- anes_data22[anes_data22$pid_x %in% c(1, 2, 3, 5, 6, 7), ]
+
+# Combine is_dem and is_rep into one factor variable for comparison
+anes_data22$party_affiliation <- factor(ifelse(anes_data22$pid_x %in% c(1, 2, 3), "Democrat", "Republican"))
+
+text_levels <- c("Not difficult at all", "A little difficult", "Moderately difficult", "Very difficult", "Extremely difficult")
+
+#remove the "N/A" -1 value from votehard
+anes_data22 <- anes_data22[anes_data22$votehard != -1, ]
+anes_data22_selected <- select(anes_data22, party_affiliation, votehard)
+for (i in 1:5)
+{
+  anes_data22_selected$votehard <- replace(anes_data22_selected$votehard, anes_data22_selected$votehard == i, text_levels[i])
+}
+
+#Factor table to order votehard values
+anes_data22_selected$votehardFactor <- factor(anes_data22_selected$votehard, levels = text_levels)
+
+two_contingency_table <- table(anes_data22_selected$party_affiliation, anes_data22_selected$votehardFactor)
+#Remove "Other" category (second row)
+
+kable(
+  two_contingency_table,
+  digits = 2,
+  caption = "Voting Difficulty by Party Leaning", 
+  booktabs = TRUE, 
+)
+```
+
+Preliminary observations revealed the vast majority of participants from both parties found voting "Not difficult at all", with nearly identical numbers of respondents. However, as the difficulty level increased, a discrepancy arose. More than double the number of Democrat respondents reported higher levels of difficulty in the next three levels compared to their Republican counterparts. While this could partly be due to the higher number of valid Democrat responses (565 vs. 482), it suggests a trend worth further investigation. In the "Extremely difficult" category, there were two participants from each party. While this could partly be due to the higher number of valid Democrat responses (565 vs. 482), it suggests a trend worth further investigation. In the "Extremely difficult" category, there were two participants from each party. A stacked bar plot may offer additional insight into these patterns:
+
+```{r visualize_party, echo=FALSE, fig.height = 2, fig.width=5 , fig.align="center"}
+
+#Bar Plot
+
+voteHardFactor <- factor(anes_data22_selected$votehard, levels=rev(text_levels))
+options(repr.plot.width = 100, repr.plot.height = 100)
+ggplot(anes_data22_selected, aes(x=party_affiliation, fill = voteHardFactor)) +
+  geom_bar(stat="count") + ggtitle("Voting difficulties by Party Affiliation")
+
+
+```
+
+This adds evidence to our intuition: While there are more Democrat respondents than Republicans, the categories ahead of "Not difficult at all" seem to be much larger in the "Democrat" column even accounting for the difference in the overall size of the columns.
+
+To statistically test these observations, we employed the Wilcoxon Rank-Sum test (Hypothesis of Comparisons), which is suitable for our ordinal data and the lack of natural pairings between Democrats and Republicans. Our null hypothesis was:
+
+**Null Hypothesis:** *"The probability that a survey respondent who leans Democrat has a higher difficulty voting than a respondent who leans Republican is the same as the probability that a respondent who leans Republican has a higher difficulty than a respondent who leans Democrat."*
+
+With the test and null hypothesis established, we can now evaluate the assumptions of this test: an ordinal scale and independent, identically distributed responses. The data is ordinal as required, drawn from the same distribution, and reveals no evidence suggesting survey responses from respondents to be dependent on one another. The data from the 2022 pilot study supports these assumptions, validating our choice of statistics.
+
+# Results
+
+```{r wilcoxon_test}
+# Perform the Wilcoxon rank-sum test
+wilcox_test_result <- wilcox.test(votehard ~ party_affiliation, data = anes_data22)
+
+# Print the result
+print(wilcox_test_result)
+```
+
+The Wilcoxon rank-sum test provides strong evidence that individuals affiliated with the Democratic Party are more likely to experience voting difficulties than those affiliated with the Republican Party (p = 6.011e-06). [We reject our null hypothesis]{.underline}. This result is also significant practically. Among Democratic voters, 10.44% found voting "A little difficult" compared to 5.39% of Republican voters. Furthermore, 5.66% of Democrats found voting "Moderately Difficult," compared to 2.07% of Republicans.
+
+While these percentage point differences may initially appear small, their impact could be substantial in a highly competitive and polarized electorate. Even minor increases in voting difficulty for one party can influence election outcomes.
+
+Despite the clear statistical significance, there are limitations to our findings. The ANES data may not be nationally representative, which could limit the generality of our results to the entire U.S. population. Therefore, caution should be exercised when interpreting these findings beyond the study's sample.
+
+# Discussion
+
+The results of this study indicate that Democrats face significantly more voting difficulties compared to Republicans, based on the ANES data. Specifically, the percentage of Democrats encountering voting obstacles is more than double that of Republicans. With over 17% and 8% of Democrats and Republicans voters respectively experiencing difficulties, the disparity in the absolute number of voters, by party, experiencing voter difficulty is relatively large, and, in a highly polarized and closely contested electorate, such differences can be pivotal and potentially influence the outcomes of close elections.
+
+These findings are particularly relevant for policymakers and political campaigns aiming to enhance voter turnout and reduce barriers to voting. Understanding which groups face voting challenges, targeted interventions can be developed to address these issues and promote a more inclusive voting process.
+
+While this study focuses on voting difficulties by party affiliation (limited to Democrats and Republicans), future research should expand to include additional parties and demographic groups. Identifying which demographics face the most significant challenges in voting can help measure and address inequalities in the electoral process. Ultimately, a comprehensive understanding of voting difficulties can inform strategies to ensure fairer and more accessible voting for all citizens.
